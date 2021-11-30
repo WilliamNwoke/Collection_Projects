@@ -4,6 +4,10 @@ import random
 import struct
 import hashlib
 import binascii
+import datetime
+
+
+HDR_SZ = 24
 
 def compactsize_t(n):
     if n < 252:
@@ -70,6 +74,13 @@ def unmarshal_int(b):
 def unmarshal_uint(b):
     return int.from_bytes(b, byteorder='little', signed=False)
 
+def checksum(payload:bytes):
+    if len(payload) == 0:
+        return bytes.fromhex('5df6e0e2')
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    return checksum 
+
+
 
 def print_message(msg, text=None):
     """
@@ -110,7 +121,7 @@ def print_version_msg(b):
     prefix *= 2
     print('{}{:32} version {}'.format(prefix, version.hex(), unmarshal_int(version)))
     print('{}{:32} my services'.format(prefix, my_services.hex()))
-    time_str = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime(unmarshal_int(epoch_time)))
+    time_str = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(unmarshal_int(epoch_time)))
     print('{}{:32} epoch time {}'.format(prefix, epoch_time.hex(), time_str))
     print('{}{:32} your services'.format(prefix, your_services.hex()))
     print('{}{:32} your host {}'.format(prefix, rec_host.hex(), ipv6_to_ipv4(rec_host)))
@@ -137,6 +148,7 @@ def print_header(header, expected_cksum=None):
     magic, command_hex, payload_size, cksum = header[:4], header[4:16], header[16:20], header[20:]
     command = str(bytearray([b for b in command_hex if b != 0]), encoding='utf-8')
     psz = unmarshal_uint(payload_size)
+
     if expected_cksum is None:
         verified = ''
     elif expected_cksum == cksum:
@@ -165,60 +177,75 @@ def create_network_address(ip_address, port):
     return(network_address)
 
 # Create the TCP request object
-def create_message(magic, command, payload):
-    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[0:4]
-    return(struct.pack('L12sL4s', magic, command.encode(), len(payload), checksum) + payload)
+def create_message(payload):
+    magic = bytes.fromhex("F9BEB4D9")
+    command = "version" + 5 * "\00"
+    length = struct.pack("I", len(payload))
+
+    check = checksum(payload)
+    msg = magic + bytes(command.encode("utf-8")) + length + check + payload
+    return msg
 
 # Create the "version" request payload
-def create_payload_version(peer_ip_address):
-    version = 60002
-    services = 1
-    timestamp = int(time.time())
-    addr_local = create_network_address("127.0.0.1", 8333)
-    addr_peer = create_network_address(peer_ip_address, 8333)
-    nonce = random.getrandbits(64)
-    start_height = 0
-    payload = struct.pack('<LQQ26s26sQ16sL', version, services, timestamp, addr_peer,
-                          addr_local, nonce, create_sub_version(), start_height)
-    return(payload)
+def create_version_message(peer_ip_address):
+    version = int32_t(70015)
+
+    services = struct.pack("Q", 0)
+    timestamp = struct.pack("q", int(time.time()))
+
+    addr_recv_services = struct.pack("Q", 0) #services
+    addr_recv_ip = struct.pack(">16s", b"127.0.0.1")
+    addr_recv_port = struct.pack(">H", 8333)
+
+    addr_trans_services = struct.pack("Q", 0) #services
+    addr_trans_ip = struct.pack(">16s", b"127.0.0.1")
+    addr_trans_port = struct.pack(">H", 8333)
+
+    nonce = struct.pack("Q", random.getrandbits(64))
+    user_agent_bytes = struct.pack("B", 0)
+    starting_height = int32_t(0)
+    relay = struct.pack("?", False)
+
+    payload = version + services + timestamp + addr_recv_services + addr_recv_ip + addr_recv_port + addr_trans_services + addr_trans_ip + addr_trans_port + nonce + user_agent_bytes + starting_height + relay
+    return create_message(payload)
 
 def create_message_verack():
     return bytearray.fromhex("f9beb4d976657261636b000000000000000000005df6e0e2")
 
-# Create the "getdata" request payload
-def create_payload_getdata(tx_id):
-    count = 1
-    type = 1
-    hash = bytearray.fromhex(tx_id)
-    payload = struct.pack('<bb32s', count, type, hash)
-    return(payload)
-
-def print_response(command, request_data, response_data):
-    print("")
-    print("Command: " + command)
-    print("Request:")
-    print(binascii.hexlify(request_data))
-    print("Response:")
-    print(binascii.hexlify(response_data))
 
 # ----------------------------------------------------------------------
+
+def getblockhash(height):
+    '''
+    Return the block hash of the block height
+    '''
+    return 
+
+def getblocks(verbosity):
+    hash
+
+
+
 if __name__ == '__main__':
     
+    SU_ID = 4164917
     peer_address = '5.2.67.244'
     peer_port = 8333
     magic_value = 0xd9b4bef9
     buffer_size = 1024
-    tx_id = "fc57704eff327aecfadb2cf3774edc919ba69aba624b836461ce2be9c00a0c20"
+    height = SU_ID % 700000
 
     peers = []
+    peers_6 = []
     file = ""
-    filename = open('nodes_main.txt','r')
-    file = filename.readlines()
-    lines_to_print = range(0,413)
-    for index,line in enumerate(file):
-        if (index in lines_to_print):
-            file = line.strip().split(':')
-            peers.append(file)
+    # filename = open('nodes_main.txt','r')
+    # file = filename.readlines()
+    # lines_to_print = range(0,413)
+    # for index,line in enumerate(file):
+    #     if (index in lines_to_print):
+    #         file = line.strip().split(':')
+    #         peers.append(file)
+          
 
     
     with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
@@ -233,32 +260,20 @@ if __name__ == '__main__':
         #     except OSError as err:
         #         print(f'Failed to connect: {err}')
 
-        # version_payload = create_payload_version(peer_address)
-        # version_message = create_message(magic_value, 'version', version_payload)
-        # verack_message = create_message_verack()
-        # getdata_payload = create_payload_getdata(tx_id)
-        # getdata_message = create_message(magic_value, 'getdata', getdata_payload)
+        version_message = create_version_message(peer_address)
+        verack_message = create_message_verack()
 
-        # s.connect((peer_address, peer_port))
-        # version_payload = create_payload_version(peer_address)
-        # version_message = create_message(magic_value, 'version', version_payload)
+        s.connect((peer_address, peer_port))
             
-        # # Send message "version"
-        # print(version_message)
-        # s.send(version_message)
-        # response_data = s.recv(buffer_size)
-        # print_response("version", version_message, response_data)
-
+        # Send message "version"
+        print()
+        print_message(version_message, "sending")
+        s.send(version_message)
+        response_data = s.recv(buffer_size)
+        print_message(response_data, "recieved")
+        
         # # Send message "verack"
-        # print(verack_message)
+        # #print(verack_message)
         # s.send(verack_message)
         # response_data = s.recv(buffer_size)
-
-        # print_response("verack", verack_message, response_data)
-
-        # # Send message "getdata"
-        # s.send(getdata_message)
-        # response_data = s.recv(buffer_size)
-        # print_response("getdata", getdata_message, response_data)
-        print(ipv6_to_ipv4('2a02:7aa0:1619::adc:8de0'))
-        print(ipv6_from_ipv4('104.199.184.15'))
+        # print_message("verack", verack_message, response_data)
