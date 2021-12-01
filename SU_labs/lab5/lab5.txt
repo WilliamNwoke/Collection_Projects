@@ -1,0 +1,140 @@
+        
+def create_version_message(peer_ip_address):
+    version = int32_t(70015)
+
+    services = struct.pack("Q", 0)
+    timestamp = struct.pack("q", int(time.time()))
+
+    addr_recv_services = struct.pack("Q", 0) #services
+    addr_recv_ip = struct.pack(">16s", b"127.0.0.1")
+    addr_recv_port = struct.pack(">H", 8333)
+
+    addr_trans_services = struct.pack("Q", 0) #services
+    addr_trans_ip = struct.pack(">16s", b"127.0.0.1")
+    addr_trans_port = struct.pack(">H", 8333)
+
+    nonce = struct.pack("Q", random.getrandbits(64))
+    user_agent_bytes = struct.pack("B", 0)
+    starting_height = int32_t(0)
+    relay = struct.pack("?", False)
+
+    payload = version + services + timestamp + addr_recv_services + addr_recv_ip + addr_recv_port + addr_trans_services + addr_trans_ip + addr_trans_port + nonce + user_agent_bytes + starting_height + relay
+    return create_message(payload)
+
+if __name__ == '__main__':
+
+    with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
+    s.connect((peer_address, peer_port))  
+        version_message = create_version_message(peer_address)
+
+        print_message(version_message, "sending")
+        s.send(version_message)
+        response_data = s.recv(buffer_size)
+        print_message(response_data, "recieved")
+
+Output:
+sending MESSAGE
+(110) f9beb4d976657273696f6e0000000000560000009575798b7f110100000000000000000089e6a5610000000000000000000000003132372e302e302e...
+  HEADER
+  --------------------------------------------------------
+    f9beb4d9                         magic
+    76657273696f6e0000000000         command: version
+    56000000                         payload size: 86
+    9575798b                         checksum (verified)
+  VERSION
+  --------------------------------------------------------
+    7f110100                         version 70015
+    0000000000000000                 my services
+    89e6a56100000000                 epoch time Tue, 30 Nov 2021 08:53:29 GMT
+    0000000000000000                 your services
+    3132372e302e302e3100000000000000 your host 0.0.0.0
+    208d                             your port 36128
+    0000000000000000                 my services (again)
+    3132372e302e302e3100000000000000 my host 0.0.0.0
+    208d                             my port 36128
+    a9e6eb24cd22a3c5                 nonce
+    00                               user agent size 0
+                                     user agent ''
+    00000000                         start height 0
+    00                               relay False
+
+recieved MESSAGE
+(150) f9beb4d976657273696f6e00000000006600000098e7cb317f110100090400000000000089e6a5610000000000000000000000000000000000000000...
+  HEADER
+  --------------------------------------------------------
+    f9beb4d9                         magic
+    76657273696f6e0000000000         command: version
+    66000000                         payload size: 102
+    98e7cb31                         checksum (WRONG!! 0ce1e778)
+  VERSION
+  --------------------------------------------------------
+    7f110100                         version 70015
+    0904000000000000                 my services
+    89e6a56100000000                 epoch time Tue, 30 Nov 2021 08:53:29 GMT
+    0000000000000000                 your services
+    00000000000000000000ffffae3da108 your host 174.61.161.8
+    58d1                             your port 53592
+    0904000000000000                 my services (again)
+    00000000000000000000000000000000 my host 0.0.0.0
+    0000                             my port 0
+    eca6f3491b93428a                 nonce
+    10                               user agent size 16
+    2f5361746f7368693a302e32302e312f user agent '/Satoshi:0.20.1/'
+    fbdc0a00                         start height 711931
+    01                               relay True
+    f9beb4d976657261636b000000000000000000005df6e0e2 EXTRA!!
+
+##################################################################################################################################
+##################################################################################################################################    
+➜  lab5 git:(master) ✗ python3 lab5.py
+
+
+sending MESSAGE
+(110) f9beb4d976657273696f6e00000000005600000084510f697f110100000000000000000094e6a5610000000000000000000000003132372e302e302e...
+  HEADER
+  --------------------------------------------------------
+    f9beb4d9                         magic
+    76657273696f6e0000000000         command: version
+    56000000                         payload size: 86
+    84510f69                         checksum (verified)
+  VERSION
+  --------------------------------------------------------
+    7f110100                         version 70015
+    0000000000000000                 my services
+    94e6a56100000000                 epoch time Tue, 30 Nov 2021 08:53:40 GMT
+    0000000000000000                 your services
+    3132372e302e302e3100000000000000 your host 0.0.0.0
+    208d                             your port 36128
+    0000000000000000                 my services (again)
+    3132372e302e302e3100000000000000 my host 0.0.0.0
+    208d                             my port 36128
+    c51e7b0549b2112d                 nonce
+    00                               user agent size 0
+                                     user agent ''
+    00000000                         start height 0
+    00                               relay False
+
+recieved MESSAGE
+(126) f9beb4d976657273696f6e000000000066000000d36c3cb17f110100090400000000000093e6a5610000000000000000000000000000000000000000...
+  HEADER
+  --------------------------------------------------------
+    f9beb4d9                         magic
+    76657273696f6e0000000000         command: version
+    66000000                         payload size: 102
+    d36c3cb1                         checksum (verified)
+  VERSION
+  --------------------------------------------------------
+    7f110100                         version 70015
+    0904000000000000                 my services
+    93e6a56100000000                 epoch time Tue, 30 Nov 2021 08:53:39 GMT
+    0000000000000000                 your services
+    00000000000000000000ffffae3da108 your host 174.61.161.8
+    5f30                             your port 12383
+    0904000000000000                 my services (again)
+    00000000000000000000000000000000 my host 0.0.0.0
+    0000                             my port 0
+    5b46c072883e32d6                 nonce
+    10                               user agent size 16
+    2f5361746f7368693a302e32302e312f user agent '/Satoshi:0.20.1/'
+    fbdc0a00                         start height 711931
+    01                               relay True

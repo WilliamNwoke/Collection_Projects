@@ -187,7 +187,7 @@ def create_message(payload):
     return msg
 
 # Create the "version" request payload
-def create_version_message(peer_ip_address):
+def create_version_message(peer_address):
     version = int32_t(70015)
 
     services = struct.pack("Q", 0)
@@ -274,6 +274,7 @@ if __name__ == '__main__':
         
         # # Send message "verack"
         # #print(verack_message)
-        # s.send(verack_message)
-        # response_data = s.recv(buffer_size)
+        s.send(verack_message)
+        response_data = s.recv(buffer_size)
+        print_message(response_data, "recieved")
         # print_message("verack", verack_message, response_data)
