@@ -9,6 +9,7 @@ class lab6(object):
         self.su_name = su_name
 
     def run():
+        pass
         
 if __name__ == '__main__':
     peers = []
