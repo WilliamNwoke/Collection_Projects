@@ -170,41 +170,41 @@ def create_sub_version():
     sub_version = "/Satoshi:0.7.2/"
     return b'\x0F' + sub_version.encode()
 
-# Binary encode the network addresses
-def create_network_address(ip_address, port):
-    network_address = struct.pack('>8s16sH', b'\x01', 
-        bytearray.fromhex("00000000000000000000ffff") + socket.inet_aton(ip_address), port)
-    return(network_address)
+# # Binary encode the network addresses
+# def create_network_address(ip_address, port):
+#     network_address = struct.pack('>8s16sH', b'\x01', 
+#         bytearray.fromhex("00000000000000000000ffff") + socket.inet_aton(ip_address), port)
+#     return(network_address)
 
 # Create the TCP request object
 def create_message(payload):
     magic = bytes.fromhex("F9BEB4D9")
     command = "version" + 5 * "\00"
-    length = struct.pack("I", len(payload))
+    length = uint32_t(len(payload))
 
     check = checksum(payload)
-    msg = magic + bytes(command.encode("utf-8")) + length + check + payload
+    msg = magic + bytes(command.encode()) + length + check + payload
     return msg
 
-# Create the "version" request payload
-def create_version_message(peer_address):
+# Create the "version" message
+def create_version_message(peer_address, my_address):
     version = int32_t(70015)
 
-    services = struct.pack("Q", 0)
-    timestamp = struct.pack("q", int(time.time()))
+    services = uint64_t(0)
+    timestamp = int64_t(int(time.time()))
 
-    addr_recv_services = struct.pack("Q", 0) #services
-    addr_recv_ip = struct.pack(">16s", b"127.0.0.1")
-    addr_recv_port = struct.pack(">H", 8333)
+    addr_recv_services = uint64_t(1) #services
+    addr_recv_ip = ipv6_from_ipv4(peer_address)
+    addr_recv_port = uint16_t(8333)
 
-    addr_trans_services = struct.pack("Q", 0) #services
-    addr_trans_ip = struct.pack(">16s", b"127.0.0.1")
-    addr_trans_port = struct.pack(">H", 8333)
+    addr_trans_services = uint64_t(0) #services
+    addr_trans_ip = ipv6_from_ipv4(my_address[0])
+    addr_trans_port = uint16_t(my_address[1])
 
-    nonce = struct.pack("Q", random.getrandbits(64))
-    user_agent_bytes = struct.pack("B", 0)
+    nonce = uint64_t(0)
+    user_agent_bytes = compactsize_t(0)
     starting_height = int32_t(0)
-    relay = struct.pack("?", False)
+    relay = bool_t(False)
 
     payload = version + services + timestamp + addr_recv_services + addr_recv_ip + addr_recv_port + addr_trans_services + addr_trans_ip + addr_trans_port + nonce + user_agent_bytes + starting_height + relay
     return create_message(payload)
@@ -222,14 +222,22 @@ def getblockhash(height):
     return 
 
 def getblocks(verbosity):
-    hash
+
+    version = int32_t(70015)
+    count = 0
+    count +=1
+    block_locator = 32
+    block_locator +=1
+    hash_stop = 32
+    payload = version + count + block_locator + hash_stop
+
 
 
 
 if __name__ == '__main__':
     
     SU_ID = 4164917
-    peer_address = '5.2.67.244'
+    peer_address = '67.210.228.203' #'5.2.67.244'# '5.14.92.253'
     peer_port = 8333
     magic_value = 0xd9b4bef9
     buffer_size = 1024
@@ -238,13 +246,13 @@ if __name__ == '__main__':
     peers = []
     peers_6 = []
     file = ""
-    # filename = open('nodes_main.txt','r')
-    # file = filename.readlines()
-    # lines_to_print = range(0,413)
-    # for index,line in enumerate(file):
-    #     if (index in lines_to_print):
-    #         file = line.strip().split(':')
-    #         peers.append(file)
+    filename = open('nodes_main.txt','r')
+    file = filename.readlines()
+    lines_to_print = range(0,413)
+    for index,line in enumerate(file):
+        if (index in lines_to_print):
+            file = line.strip().split(':')
+            peers.append(file)
           
 
     
@@ -252,15 +260,16 @@ if __name__ == '__main__':
         # for peer in peers:
         #     try:
         #         print(f"Connecting to :{peer}")
-        #         s.settimeout(10)
-        #         s.connect((peer[0], int(peer[1])))
+        #         if peer[0] != '5.2.67.244':
+        #             s.connect((peer[0], int(peer[1])))
+        #             print("connected")
+        #             s.close()
+        #     except Exception as err:
+        #         print(f'    Failed to connect: {err}')
 
-        #         print("connected")
-        #         s.settimeout()
-        #     except OSError as err:
-        #         print(f'Failed to connect: {err}')
+        my_address = s.getsockname()
 
-        version_message = create_version_message(peer_address)
+        version_message = create_version_message(peer_address, my_address)
         verack_message = create_message_verack()
 
         s.connect((peer_address, peer_port))
@@ -269,12 +278,12 @@ if __name__ == '__main__':
         print()
         print_message(version_message, "sending")
         s.send(version_message)
-        response_data = s.recv(buffer_size)
+        response_data = s.recv(126)
         print_message(response_data, "recieved")
         
         # # Send message "verack"
         # #print(verack_message)
         s.send(verack_message)
-        response_data = s.recv(buffer_size)
+        response_data = s.recv(24)
         print_message(response_data, "recieved")
         # print_message("verack", verack_message, response_data)
