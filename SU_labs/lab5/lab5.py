@@ -80,6 +80,11 @@ def checksum(payload:bytes):
     checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
     return checksum 
 
+def hex_littletobig(string):
+    result = bytearray.fromhex(string)
+    result.reverse
+    return ''.join(format(x, '02x') for x in result)
+
 
 
 def print_message(msg, text=None):
@@ -221,16 +226,36 @@ def getblockhash(height):
     '''
     return 
 
-def getblocks(verbosity):
+def getblocks():
 
     version = int32_t(70015)
     count = 0
     count +=1
     block_locator = 32
     block_locator +=1
-    hash_stop = 32
+    hash_stop = 0
     payload = version + count + block_locator + hash_stop
 
+    # return inv
+
+
+# ++++++++++++++++++++++
+
+def getblocks(genesis, highest = ''):
+    version = int32_t(70015)
+    hash_count = compactsize_t(1)
+
+    if genesis:
+        blockhash_header = struct.pack('32s', b'\00')
+    else:
+        blockhash_header = bytearray.fromhex(hex_littletobig(highest))
+
+    hash_stop = struct.pack('32s', b'\x00')
+
+    payload = version + hash_count + blockhash_header + hash_stop
+    
+
+# ++++++++++++++++++++++++++++
 
 
 
@@ -282,8 +307,16 @@ if __name__ == '__main__':
         print_message(response_data, "recieved")
         
         # # Send message "verack"
-        # #print(verack_message)
+        print_message(verack_message, 'sending')
         s.send(verack_message)
         response_data = s.recv(24)
         print_message(response_data, "recieved")
         # print_message("verack", verack_message, response_data)
+
+        '''
+        getblocks_payload = 
+        getblocsk_header = 
+        getblocks_message = getblocks_payload + getblocks_header
+
+
+        '''

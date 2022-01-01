@@ -105,5 +105,5 @@ while True:
 	# that connects
 	start_new_thread(clientthread,(conn,addr))	
 
-conn.close()
-server.close()
+	conn.close()
+	server.close()
