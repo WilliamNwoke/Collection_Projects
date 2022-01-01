@@ -1,3 +1,19 @@
+'''
+Acknowledgement: This program was developed using code stubs and code provided
+in class developed by Professor Kevin Lundeen. Uncommented methods for
+interpretation and conversion of endianness were provided and authored by
+Professor Brian Daughtery and Professor Kevin Laundeen.
+
+CPSC 5520, Seattle University
+This is free and unencumbered software released into the public domain.
+:Author: Uchenna Nwoke
+:Implemented: Fall Quarter 2021
+
+Extra Credit: Implemented the first part of interpreting the transaction message
+for my block. Got the block header and number of transactions.
+'''
+
+
 import socket
 import time
 import struct

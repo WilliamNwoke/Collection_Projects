@@ -1,99 +1,128 @@
+"""
+CPSC 5520, Seattle University
+This is free and unencumbered software released into the public domain.
+:Authors: Uchena
+:Didn't use pickle because of extra bytes at the end of it
+"""
+
 import socket
 import select
+import errno
 import sys
-import pickle
-from _thread import *
 
-'''
-Constants
-'''
-def clientthread(conn, addr):
-	conn.send(b"Welcome to this chatroom!")
+def chat_handler(node_sock):
+    '''
+        Function to receive chat from nodes
+    '''
+    try:
+        chat_header = node_sock.recv(BUF_SZ)
+        if not len(chat_header):
+            return False
+        chat_length = int(chat_header.decode('utf-8').strip())
+        return {'header': chat_header, 'data': node_sock.recv(chat_length)}
+    except:
+        return False
+        
 
-	while True:
-			try:
-				message = conn.recv(2048)
-				if message:
-					print ("<" + addr[0] + "> " + message)
 
-					# broadcast message to all
-					message_to_send = "<" + addr[0] + "> " + message
-					broadcast(message_to_send, conn)
-				else:
-					remove(conn)
-			except:
-				continue
-
-def broadcast(message, connection):
-	for clients in list_of_clients:
-		if clients!=connection:
-			try:
-				clients.send(message)
-			except:
-				clients.close()
-				remove(clients)
-
-def remove(connection):
-	if connection in list_of_clients:
-		list_of_clients.remove(connection)
-
-def start_a_server():
-    sock = socket.socket()
-    sock.bind((IP_address, Port))
-    sock.listen()
-    sock.setblocking(False)
-    return sock, sock.getsockname
-     
 if __name__ == '__main__':
-    peers = []
-    list_of_clients = []
 
-
-    if (len(sys.argv) in range(3,4)):
-        print("Usage: python lab2.py my_ip, my_port, (host_ip: if you are not the host)")
+    if len(sys.argv) != 3:
+        print('Usage: python3 lab6.py host_port, [command: server or client => |lower case| ]') 
         exit()
 
-    if len(sys.argv) == 3:
-        IP_address = str(sys.argv[1])
-        Port = int(sys.argv[2])
-        
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind((IP_address, Port))
-        server.listen(10)
+    BUF_SZ = 10
+    Host_IP = '127.0.0.1'
+    Host_Port = int(sys.argv[1])
+
+
+    # Server Code
+    if str(sys.argv[2]) == 'server':
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((Host_IP, Host_Port))
+        server_socket.listen()
+        sockets_list = [server_socket]
+        nodes = {}
+
+        print(f'Listening => Host: {Host_IP}. Port: {Host_Port}')
 
         while True:
-            print("Waiting for connection")
-            conn, addr = server.accept()
+            read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
+            for known_node_socket in read_sockets:
+                if known_node_socket == server_socket:
+                    node_sock, client_address = server_socket.accept()
+                    user = chat_handler(node_sock)
 
+                    if user is False:
+                        continue
 
-            list_of_clients.append(conn)
+                    sockets_list.append(node_sock)
+                    nodes[node_sock] = user
+                    print(f"{user['data'].decode('utf-8')} connected")
+                else:
+                    chat = chat_handler(known_node_socket)
+                    if chat is False:
+                        print('{} Has left'.format(nodes[known_node_socket]['data'].decode('utf-8')))
 
-            # prints the address of the user that just connected
-            print (addr[0] + "has joined the chat")
+                        sockets_list.remove(known_node_socket)
+                        del nodes[known_node_socket]
+                        continue
 
-            # creates and individual thread for every user
-            # that connects
-            start_new_thread(clientthread,(conn,addr))	
+                    node = nodes[known_node_socket]
+                    for node_sock in nodes:
+                        if node_sock != known_node_socket:
+                            node_sock.send(node['header'] + node['data'] + chat['header'] + chat['data'])
 
-    if len(sys.argv) == 4:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        IP_address = str(sys.argv[1])
-        Port = int(sys.argv[2])
-        server.connect((IP_address, Port))
+            for known_node_socket in exception_sockets:
+                sockets_list.remove(known_node_socket)
+                del nodes[known_node_socket]
+    
+    
+    # Client
+    if sys.argv[2] == 'client':
 
-        sockets_list = [sys.stdin, server]
-        read_sockets,write_socket, error_socket = select.select(sockets_list,[],[])
+        friendly_name = input("Username: ")
 
-        for socks in read_sockets:
-            if socks == server:
-                message = socks.recv(2048)
-                print (message)
-            else:
-                message_string = sys.stdin.readline()
-                message = pickle.dumps(message_string)
-                server.send(b'{message}')
-                sys.stdout.write("<You>")
-                sys.stdout.write(message)
-                sys.stdout.flush()
-        server.close()
+        node_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        node_sock.connect((Host_IP, Host_Port))
+        node_sock.setblocking(False)
+
+        username = friendly_name.encode('utf-8')
+        header = f"{len(username):<{BUF_SZ}}".encode('utf-8')
+        
+        node_sock.send(header + username)
+        
+        while True:
+            chat = input(f'{friendly_name}:  ')
+
+            if chat:
+                chat = chat.encode('utf-8')
+                chat_header = f"{len(chat):<{BUF_SZ}}".encode('utf-8')
+                node_sock.send(chat_header + chat)
+
+            try:
+                while True:
+                    header = node_sock.recv(BUF_SZ)
+                    if not len(header):
+                        print('Connection closed by the server')
+                        sys.exit()
+                    USR_SZ = int(header.decode('utf-8').strip())
+                    username = node_sock.recv(USR_SZ).decode('utf-8')
+
+                    chat_header = node_sock.recv(BUF_SZ)
+
+                    chat_length = int(chat_header.decode('utf-8').strip())
+                    chat = node_sock.recv(chat_length).decode('utf-8')
+                    print(f'{username}:  {chat}')
+            except IOError as err:
+                if err.errno != errno.EAGAIN:
+                    if err.errno != errno.EWOULDBLOCK:
+                        print('Reading error: {}'.format(str(err)))
+                        sys.exit()
+                continue
+            except Exception as err:
+                print('Reading error: '.format(str(err)))
+                sys.exit()
+
+                
