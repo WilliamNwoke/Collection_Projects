@@ -1,3 +1,8 @@
+"""
+This is free and unencumbered software released into the public domain.
+:Authors: Uchena
+"""
+
 import subprocess
 
 # Will store the profiles data
